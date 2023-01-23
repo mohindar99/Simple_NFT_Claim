@@ -25,7 +25,7 @@ contract SimpleNFTClaim {
        require(msg.sender==admin,"you are not the admin");
        _;
    }
-
+//gas consumption might be more but the security is given more preference
    function register(address NFT_ , address[] memory receivers_ , uint[] memory tokenID) payable external returns(bool){
       ERC721 nftcontract = ERC721(NFT_);
 
@@ -44,7 +44,7 @@ contract SimpleNFTClaim {
       // admin.transfer(usage_fee);
       return true;
    }
-
+//receivers for whom the NFT is set can claim the NFT
    function NFTclaim() external returns(bool){
        address receiver_addr=msg.sender;
        require(receivers[receiver_addr].status,"There are no NFTs registered on your address");
@@ -55,11 +55,11 @@ contract SimpleNFTClaim {
        receivers[receiver_addr]=receiver_details(address(0),0,false);
        return true;
    }
-
+// withdraw the money from the contract
    function withdrawal() external onlyadmin{
        admin.transfer(address(this).balance);
    }
-
+// change of ownership
    function changeowner(address payable admin_) external onlyadmin{
        admin=admin_;
    } 
