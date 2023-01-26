@@ -8,12 +8,16 @@ contract SimpleNFTClaim {
 
    struct receiver_details{
        address NFT_;
+       address owner;
+       address receiver;
        uint tokenID;
        // status is used for owner confirmation of the NFT
-        bool status;
+       bool claim_status;
    }
-   mapping(address=> receiver_details) public receivers;
-   address payable public admin;
+
+   mapping(address=> mapping (uint => receiver_details)) private receivers;
+
+   address payable private admin;
    uint public usage_fee;
    
    constructor(uint fee){
@@ -34,34 +38,55 @@ contract SimpleNFTClaim {
       require(NFT_!=address(0),"NFt address is invalid");
 
       // transfering all the tokens fron the owner to smart contract
+      // upting the receivers mapping for the claim
       for(uint i; i<tokenID.length;i++){
          nftcontract.transferFrom(msg.sender,address(this),tokenID[i]);
-      }
-      //upting the receivers mapping for the claim
-      for(uint i; i<receivers_.length;i++){
-          receivers[receivers_[i]]=receiver_details(NFT_,tokenID[i],true);      
+         receivers[NFT_][tokenID[i]]=receiver_details(NFT_,msg.sender,receivers_[i],tokenID[i],true);
       }
       // admin.transfer(usage_fee);
       return true;
    }
 //receivers for whom the NFT is set can claim the NFT
-   function NFTclaim() external returns(bool){
-       address receiver_addr=msg.sender;
-       require(receivers[receiver_addr].status,"There are no NFTs registered on your address");
-      
-       ERC721 nftcontract = ERC721(receivers[receiver_addr].NFT_);
-       nftcontract.transferFrom(address(this),receiver_addr,receivers[receiver_addr].tokenID);
+   function NFTclaim(address NFT , uint[] memory tokenID) external returns(bool){
+       ERC721 nftcontract = ERC721(NFT);
 
-       receivers[receiver_addr]=receiver_details(address(0),0,false);
+       for(uint i ;i<tokenID.length;i++){
+       assert(receivers[NFT][tokenID[i]].claim_status==true);
+       require(receivers[NFT][tokenID[i]].receiver==msg.sender,"There are no NFTs registered on your address");
+       nftcontract.transferFrom(address(this),msg.sender,receivers[NFT][tokenID[i]].tokenID);
+       receivers[NFT][tokenID[i]]=receiver_details(NFT,address(0),address(0),tokenID[i],false);
+       } 
        return true;
    }
+
+// only NFT owner can withdraw the NFT's
+   function NFT_withdraw(address NFT , uint tokenID) external returns(bool){
+       assert(receivers[NFT][tokenID].claim_status==true);
+       require(msg.sender==receivers[NFT][tokenID].owner,"You are not the owner of the NFT");
+       ERC721 nftcontract = ERC721(NFT);
+       nftcontract.transferFrom(address(this),msg.sender,tokenID);
+       receivers[NFT][tokenID]=receiver_details(NFT,address(0),address(0),tokenID,false);
+       return true;
+   }
+
+// NFT withdraw of all the NFTs
+   function NFT_withdraw_All(address NFT , uint[] memory tokenID) external returns(bool){
+       ERC721 nftcontract = ERC721(NFT);
+       for(uint i ;i<tokenID.length;i++){
+         assert(receivers[NFT][tokenID[i]].claim_status==true);
+         require(msg.sender==receivers[NFT][tokenID[i]].owner,"You are not the owner of the NFT");
+         nftcontract.transferFrom(address(this),msg.sender,tokenID[i]);
+         receivers[NFT][tokenID[i]]=receiver_details(NFT,address(0),address(0),tokenID[i],false);        
+       }
+       return true;
+   }
+
 // withdraw the money from the contract
-   function withdrawal() external onlyadmin{
+   function admin_withdrawal() external onlyadmin{
        admin.transfer(address(this).balance);
    }
 // change of ownership
    function changeowner(address payable admin_) external onlyadmin{
        admin=admin_;
    } 
-
 }
