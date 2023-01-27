@@ -14,6 +14,7 @@ contract SimpleNFTClaim {
        // status is used for owner confirmation of the NFT
        bool claim_status;
    }
+   event logs(address nft , uint tokenID , uint last_update_time , bool transfer_status);
 
    mapping(address=> mapping (uint => receiver_details)) private receivers;
 
@@ -29,10 +30,10 @@ contract SimpleNFTClaim {
        require(msg.sender==admin,"you are not the admin");
        _;
    }
+   
 //gas consumption might be more but the security is given more preference
    function register(address NFT_ , address[] memory receivers_ , uint[] memory tokenID) payable external returns(bool){
       ERC721 nftcontract = ERC721(NFT_);
-
       assert(receivers_.length==tokenID.length);
       require(msg.value>=usage_fee,"The contract fee is insufficient");
       require(NFT_!=address(0),"NFt address is invalid");
@@ -42,12 +43,24 @@ contract SimpleNFTClaim {
       for(uint i; i<tokenID.length;i++){
          nftcontract.transferFrom(msg.sender,address(this),tokenID[i]);
          receivers[NFT_][tokenID[i]]=receiver_details(NFT_,msg.sender,receivers_[i],tokenID[i],true);
+         emit logs(NFT_,tokenID[i],block.timestamp,false);
       }
       // admin.transfer(usage_fee);
       return true;
    }
+   
+// claiming single NFT from the user
+    function NFT_claim(address NFT_ , uint tokenID) external returns (bool){
+       ERC721 nftcontract = ERC721(NFT_);
+       require(receivers[NFT_][tokenID].receiver==msg.sender,"You are not the owner of the token");
+       nftcontract.transferFrom(address(this),msg.sender,tokenID);
+       receivers[NFT_][tokenID]=receiver_details(NFT_,address(0),address(0),tokenID,false);
+       emit logs(NFT_,tokenID,block.timestamp,true);
+       return true;
+      }
+
 //receivers for whom the NFT is set can claim the NFT
-   function NFTclaim(address NFT , uint[] memory tokenID) external returns(bool){
+   function NFT_claim_All(address NFT , uint[] memory tokenID) external returns(bool){
        ERC721 nftcontract = ERC721(NFT);
 
        for(uint i ;i<tokenID.length;i++){
@@ -55,6 +68,7 @@ contract SimpleNFTClaim {
        require(receivers[NFT][tokenID[i]].receiver==msg.sender,"There are no NFTs registered on your address");
        nftcontract.transferFrom(address(this),msg.sender,receivers[NFT][tokenID[i]].tokenID);
        receivers[NFT][tokenID[i]]=receiver_details(NFT,address(0),address(0),tokenID[i],false);
+       emit logs(NFT,tokenID[i],block.timestamp,true);
        } 
        return true;
    }
